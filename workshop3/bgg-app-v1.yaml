@@ -1,0 +1,86 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+   name: bggapp-deploy-v1
+   labels:
+      app: bgg-v1
+      tier: backend
+spec:
+   replicas: 3
+   selector:
+      matchLabels: 
+         app: bgg-v1
+         tier: backend
+   template:
+      metadata:
+         name: bggapp-v1-pod
+         labels:
+            app: bgg-v1
+            tier: backend
+      spec:
+         containers:
+         -  name: bggapp-container
+            image: stackupiss/bgg-backend:v1
+            resources:
+               requests:
+                  cpu: 50m
+                  memory: 96Mi
+               limits:
+                  cpu: 100m
+                  memory: 128Mi
+            envFrom:
+            -  configMapRef:
+                  name: bgg-cm
+            -  secretRef:
+                  name: bgg-secret
+            ports:
+            -  containerPort: 3000
+            args:
+            -  --prefix
+            -  /v1
+         
+---
+apiVersion: v1
+kind: Service
+metadata:
+   name: bggapp-svc1
+   labels:
+      app: bgg-v1
+      tier: backend
+spec:
+   type: ClusterIP
+   selector:
+      app: bgg-v1
+      tier: backend
+   ports:
+   -  port: 8080
+      targetPort: 3000
+
+---
+apiVersion: autoscaling/v2beta2
+kind: HorizontalPodAutoscaler
+metadata:
+   name: bggapp-v1-hpa
+   labels:
+      name: bggapp-v1-hpa
+spec:
+   minReplicas: 1
+   maxReplicas: 4
+   scaleTargetRef:
+      apiVersion: apps/v1
+      kind: Deployment
+      name: bggapp-deploy-v1
+   metrics:
+   -  type: Resource 
+      resource:
+         name: memory
+         target:
+            type: Utilization
+            averageUtilization: 70
+   -  type: Resource 
+      resource:
+         name: cpu
+         target:
+            type: Utilization
+            averageUtilization: 80
